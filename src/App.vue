@@ -95,7 +95,6 @@
             :disabled="activeLineIndex === -1"
           >
             <template v-if="isRecording">⏹ 停止录音 ({{ recordingTime }}s)</template>
-            <template v-else>🎙️ 跟读当前句</template>
           </el-button>
           <el-button
             v-if="recordedAudioUrl && !isRecording"
