@@ -2,6 +2,7 @@ services:
   - type: web
     name: vlog-english-api
     runtime: python
+    rootDir: backend
     plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
