@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 python-multipart
-youtube-transcript-api
+youtube-transcript-api>=1.2.2,<2
 yt-dlp
 webvtt-py
 azure-cognitiveservices-speech

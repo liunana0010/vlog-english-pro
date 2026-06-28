@@ -102,37 +102,71 @@ class SubtitleFetcher:
             print(f"⚠️ 缓存保存失败: {e}")
     
     @staticmethod
+    def _create_youtube_transcript_api() -> "youtube_transcript_api.YouTubeTranscriptApi":
+        """创建 YouTubeTranscriptApi 实例（支持可选代理绕过云主机 IP 封锁）"""
+        proxy_url = os.environ.get("YOUTUBE_PROXY_URL", "").strip()
+        if proxy_url:
+            from youtube_transcript_api.proxies import GenericProxyConfig
+            print(f"🔒 [方法1] 使用代理获取字幕")
+            return youtube_transcript_api.YouTubeTranscriptApi(
+                proxy_config=GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
+            )
+        return youtube_transcript_api.YouTubeTranscriptApi()
+
+    @staticmethod
+    def _normalize_transcript_raw(fetched) -> List[Dict]:
+        """将 FetchedTranscript 或列表统一为 transcript 字典列表"""
+        if hasattr(fetched, "to_raw_data"):
+            return fetched.to_raw_data()
+        return list(fetched)
+
+    @staticmethod
     def fetch_youtube_transcript_api(video_id: str) -> Optional[List[Dict]]:
-        """方法1: 使用 youtube-transcript-api"""
+        """方法1: 使用 youtube-transcript-api（v1.2+ 实例 API）"""
         if not HAS_YOUTUBE_TRANSCRIPT:
+            print("⚠️ [方法1] youtube-transcript-api 未安装")
             return None
-        
+
         try:
             print(f"🔍 [方法1] 使用 youtube-transcript-api 获取字幕...")
-            
-            # 尝试多种语言
-            languages = ['en', 'en-US', 'en-GB', 'a.en']  # a.en 是自动生成的英文字幕
-            
-            transcript_list = youtube_transcript_api.YouTubeTranscriptApi.get_transcript(
-                video_id, 
-                languages=languages
-            )
-            
-            # 清理文本
+
+            languages = ['en', 'en-US', 'en-GB']
+            ytt_api = SubtitleFetcher._create_youtube_transcript_api()
+
+            try:
+                fetched = ytt_api.fetch(video_id, languages=languages)
+            except youtube_transcript_api.NoTranscriptFound:
+                # 直接 fetch 失败时，尝试列出并匹配可用字幕（含自动生成）
+                print("⚠️ [方法1] 直接 fetch 未命中，尝试 list + find_transcript...")
+                transcript_list = ytt_api.list(video_id)
+                transcript = transcript_list.find_transcript(languages)
+                fetched = transcript.fetch()
+
+            transcript_list = SubtitleFetcher._normalize_transcript_raw(fetched)
+
             for item in transcript_list:
                 item['text'] = item['text'].replace('\n', ' ').strip()
-            
+
+            if not transcript_list:
+                return None
+
             print(f"✅ [方法1] 成功获取 {len(transcript_list)} 句字幕")
             return transcript_list
-            
+
         except youtube_transcript_api.TranscriptsDisabled:
-            print(f"⚠️ [方法1] 该视频禁用了字幕")
+            print("⚠️ [方法1] 该视频禁用了字幕")
             return None
         except youtube_transcript_api.NoTranscriptFound:
-            print(f"⚠️ [方法1] 未找到英文字幕")
+            print("⚠️ [方法1] 未找到英文字幕")
             return None
         except Exception as e:
-            print(f"⚠️ [方法1] 获取失败: {e}")
+            error_name = type(e).__name__
+            print(f"⚠️ [方法1] 获取失败 ({error_name}): {e}")
+            if error_name in ("IpBlocked", "RequestBlocked"):
+                print(
+                    "💡 提示: Render 等云主机 IP 常被 YouTube 封锁，"
+                    "可在环境变量中设置 YOUTUBE_PROXY_URL 使用代理"
+                )
             return None
     
     @staticmethod
@@ -521,10 +555,16 @@ class SubtitleFetcher:
         
         # 4. 返回备用数据
         fallback = SubtitleFetcher.get_fallback_transcript()
+        hint = (
+            "真实字幕获取失败，已使用演示数据。"
+            "常见原因: 1) youtube-transcript-api 版本/API 不兼容（需重新部署后端）；"
+            "2) Render 等云主机 IP 被 YouTube 封锁（可配置 YOUTUBE_PROXY_URL 代理）；"
+            "3) 视频本身无英文字幕。"
+        )
         return {
             "status": "fallback",
             "source": "demo",
-            "message": "真实字幕获取失败，使用演示数据",
+            "message": hint,
             "transcript": fallback,
             "count": len(fallback)
         }

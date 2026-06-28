@@ -4,7 +4,6 @@ services:
     runtime: python
     rootDir: backend
     plan: free
-    rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
@@ -14,4 +13,6 @@ services:
         value: eastus
       - key: PYTHON_VERSION
         value: "3.11.0"
+      - key: YOUTUBE_PROXY_URL
+        sync: false
     healthCheckPath: /
