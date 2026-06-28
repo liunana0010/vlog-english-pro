@@ -4,6 +4,8 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  # 构建时注入后端地址（也可在 Netlify 控制台覆盖）
+  VITE_API_BASE_URL = "https://vlog-english-api.onrender.com"
 
 # SPA 路由回退
 [[redirects]]

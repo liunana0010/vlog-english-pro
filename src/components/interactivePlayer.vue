@@ -26,6 +26,14 @@
         <el-tag v-if="transcript.length > 0" type="info" effect="dark" size="small">
           已同步 ({{ transcript.length }} 条)
         </el-tag>
+        <el-tag
+          v-if="transcriptSource"
+          :type="transcriptSource === 'demo' ? 'warning' : 'success'"
+          effect="dark"
+          size="small"
+        >
+          字幕来源: {{ transcriptSource }}
+        </el-tag>
         <el-tag v-else type="warning" effect="dark" size="small">无字幕</el-tag>
       </div>
 
@@ -129,6 +137,7 @@ import { API_BASE_URL } from '../config'
 const props = defineProps<{
   videoId: string
   transcript: Array<{ text: string; start: number; duration: number }>
+  transcriptSource?: string
   scoredWords: Array<{ word: string; accuracy: number; error_type: string }>
   videoTitle?: string
   channelName?: string

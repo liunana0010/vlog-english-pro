@@ -72,6 +72,7 @@
             ref="interactivePlayerRef"
             :video-id="currentVideo.id"
             :transcript="currentTranscript"
+            :transcript-source="transcriptSource"
             :scored-words="wordResults"
             :video-title="currentVideo.title"
             :channel-name="currentVideo.channel"
@@ -164,7 +165,7 @@ const handleSelect = (key: string) => { activeTab.value = key }
 const searchQuery = ref('')
 const videos = ref<any[]>([])
 const isSearching = ref(false)
-const filterTags = ['vlog my life', 'TED sppech', 'Makeup vlog', 'Music', 'Interview']
+const filterTags = ['全部', 'vlog my life', 'TED Talk', 'Makeup vlog', 'Music', 'Interview']
 const activeFilter = ref('全部')
 const currentVideo = ref<any>({ id: '', title: '请先搜索视频或点击左侧测试视频', channel: '' })
 
@@ -179,6 +180,7 @@ const selectFilter = (tag: string) => {
 // 字幕相关
 // ==========================================
 const currentTranscript = ref<any[]>([])
+const transcriptSource = ref('')
 const activeLineIndex = ref(-1)
 const activeSentenceText = ref('')
 
@@ -190,6 +192,18 @@ let playerInterval: any = null
 
 onMounted(() => {
   console.log('🚀 开始初始化应用...')
+  console.log('🔗 字幕 API:', API_BASE_URL)
+  console.log('🌍 当前环境:', import.meta.env.MODE)
+  console.log('🔑 API_BASE_URL 值:', API_BASE_URL)
+  console.log('🔑 YOUTUBE_API_KEY:', YOUTUBE_API_KEY ? '已设置' : '未设置')
+
+  if (import.meta.env.PROD && /localhost|127\.0\.0\.1/.test(API_BASE_URL)) {
+    ElMessage.error({
+      message: '未配置 VITE_API_BASE_URL，当前会请求本机后端，线上无法拉取字幕。请在 Netlify 设置后重新部署。',
+      duration: 8000,
+      showClose: true
+    })
+  }
 
   // 加载 YouTube IFrame API
   if (!(window as any).YT) {
@@ -481,25 +495,36 @@ const switchVideo = async (video: any) => {
 // 获取字幕
 // ==========================================
 const fetchTranscript = async (videoId: string) => {
-  console.log('📝 正在获取字幕:', videoId)
+  console.log('📝 正在获取字幕:', videoId, 'API:', API_BASE_URL)
+  transcriptSource.value = ''
 
   try {
     const response = await fetch(`${API_BASE_URL}/transcript?video_id=${videoId}`)
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
     const data = await response.json()
 
     if (data.transcript && data.transcript.length > 0) {
       currentTranscript.value = data.transcript
+      transcriptSource.value = data.source || ''
       console.log(`✅ 字幕加载成功 (${data.source}): ${data.transcript.length} 条`)
-      ElMessage.success(`字幕加载成功 (${data.transcript.length} 条，来源: ${data.source})`)
+      if (data.source === 'demo' || data.status === 'fallback') {
+        ElMessage.warning(data.message || '真实字幕获取失败，当前为演示字幕')
+      } else {
+        ElMessage.success(`字幕加载成功 (${data.transcript.length} 条，来源: ${data.source})`)
+      }
       activeSentenceText.value = data.transcript[0].text
     } else {
       currentTranscript.value = []
+      transcriptSource.value = ''
       ElMessage.warning('未获取到字幕')
     }
   } catch (error) {
     console.error('❌ 获取字幕失败:', error)
-    ElMessage.error(`获取字幕失败，请确保后端服务运行在 ${API_BASE_URL}`)
+    ElMessage.error(`获取字幕失败 (${API_BASE_URL})，请检查 Netlify 的 VITE_API_BASE_URL 并重新部署`)
     currentTranscript.value = []
+    transcriptSource.value = ''
   }
 }
 
