@@ -1,5 +1,6 @@
 fastapi
 uvicorn
+python-multipart
 youtube-transcript-api
 yt-dlp
 webvtt-py
